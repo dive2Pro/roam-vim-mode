@@ -1122,10 +1122,14 @@ function stopVimMode() {
 function handleKeydown(event) {
     const mode = getMode();
     const key = event.key.toLowerCase();
-    const hasModifier = event.ctrlKey || event.metaKey || event.altKey;
 
     // Don't intercept when in insert mode unless it's Escape
     if (mode === Mode.INSERT && key !== 'escape') {
+        return;
+    }
+
+    // Let native Cmd shortcuts pass through (except our specific Cmd+Shift+K/J for block movement)
+    if (event.metaKey && !(event.shiftKey && (key === 'k' || key === 'j'))) {
         return;
     }
 
