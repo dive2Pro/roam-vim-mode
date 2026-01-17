@@ -53,6 +53,8 @@ var HINT_IDS = [0, 1, 2, 3, 4, 5];
 var DEFAULT_HINT_KEYS = ["q", "w", "e", "r", "t", "b"];
 var HINT_CHARS = "asdfghjkl";
 var SCROLL_PADDING = 50;
+var WHICH_KEY_PANEL_ID = `${EXTENSION_ID}--which-key`;
+var WHICH_KEY_DELAY = 400;
 
 // src/utils.js
 function delay(millis) {
@@ -1188,6 +1190,59 @@ var KEYBINDINGS = {
     { key: "F", description: "Open page hint in sidebar" },
     { key: "gf", description: "Show block hints to edit" }
   ],
+  "Leader Key (SPC) - Block": [
+    { key: "SPC b y", description: "Copy block" },
+    { key: "SPC b r", description: "Copy block reference" },
+    { key: "SPC b e", description: "Copy block embed" },
+    { key: "SPC b p/P", description: "Paste after/before" },
+    { key: "SPC b d", description: "Delete block" },
+    { key: "SPC b x", description: "Cut block" },
+    { key: "SPC b n/N", description: "New block below/above" },
+    { key: "SPC b o", description: "Open block in sidebar" },
+    { key: "SPC b m", description: "Show block mentions" },
+    { key: "SPC b z", description: "Zoom into block" }
+  ],
+  "Leader Key (SPC) - Goto": [
+    { key: "SPC g g/G", description: "First/Last block" },
+    { key: "SPC g d/h", description: "Daily Notes / Home" },
+    { key: "SPC g p", description: "Go to page..." },
+    { key: "SPC g b", description: "Go to block..." },
+    { key: "SPC g l", description: "Go to linked refs" }
+  ],
+  "Leader Key (SPC) - Window": [
+    { key: "SPC w h/l", description: "Panel left/right" },
+    { key: "SPC w o/c", description: "Open/Close right sidebar" },
+    { key: "SPC w d", description: "Close sidebar page" },
+    { key: "SPC w L", description: "Toggle left sidebar" },
+    { key: "SPC w a", description: "Add block to sidebar" },
+    { key: "SPC w m", description: "Add mentions to sidebar" },
+    { key: "SPC w g", description: "Add graph to sidebar" },
+    { key: "SPC w s", description: "Search in sidebar" }
+  ],
+  "Leader Key (SPC) - Search": [
+    { key: "SPC s s", description: "Command palette" },
+    { key: "SPC s p", description: "Find page" },
+    { key: "SPC s /", description: "Browser find (Cmd+F)" },
+    { key: "SPC s r", description: "Search in sidebar" },
+    { key: "SPC s g", description: "Graph search" }
+  ],
+  "Leader Key (SPC) - Page": [
+    { key: "SPC p n", description: "New page" },
+    { key: "SPC p d", description: "Delete page" },
+    { key: "SPC p r", description: "Rename page" },
+    { key: "SPC p o", description: "Open page in sidebar" },
+    { key: "SPC p m", description: "Show page mentions" },
+    { key: "SPC p g", description: "Show page graph" }
+  ],
+  "Leader Key (SPC) - Other": [
+    { key: "SPC t f", description: "Toggle fold" },
+    { key: "SPC t l/r", description: "Toggle left/right sidebar" },
+    { key: "SPC f f", description: "Focus first block" },
+    { key: "SPC f b", description: "Focus current block" },
+    { key: "SPC u", description: "Undo" },
+    { key: "SPC r", description: "Redo" },
+    { key: "SPC ?", description: "Help" }
+  ],
   "Search": [
     { key: "/", description: "Search in visible blocks" },
     { key: "n", description: "Go to next match" },
@@ -1251,6 +1306,82 @@ function hideHelpPanel() {
 }
 function isHelpPanelOpen() {
   return !!document.getElementById(HELP_PANEL_ID);
+}
+
+// src/which-key.js
+var whichKeyState = {
+  active: false,
+  currentNode: null,
+  path: [],
+  showTimeout: null
+};
+function showWhichKey(node, path) {
+  if (whichKeyState.showTimeout) {
+    clearTimeout(whichKeyState.showTimeout);
+  }
+  whichKeyState.currentNode = node;
+  whichKeyState.path = path;
+  whichKeyState.showTimeout = setTimeout(() => {
+    renderWhichKeyPopup(node, path);
+    whichKeyState.active = true;
+  }, WHICH_KEY_DELAY);
+}
+function showWhichKeyImmediate(node, path) {
+  if (whichKeyState.showTimeout) {
+    clearTimeout(whichKeyState.showTimeout);
+    whichKeyState.showTimeout = null;
+  }
+  whichKeyState.currentNode = node;
+  whichKeyState.path = path;
+  renderWhichKeyPopup(node, path);
+  whichKeyState.active = true;
+}
+function hideWhichKey() {
+  if (whichKeyState.showTimeout) {
+    clearTimeout(whichKeyState.showTimeout);
+    whichKeyState.showTimeout = null;
+  }
+  const panel = document.getElementById(WHICH_KEY_PANEL_ID);
+  if (panel) {
+    panel.remove();
+  }
+  whichKeyState.active = false;
+  whichKeyState.currentNode = null;
+  whichKeyState.path = [];
+}
+function renderWhichKeyPopup(node, path) {
+  const existing = document.getElementById(WHICH_KEY_PANEL_ID);
+  if (existing) {
+    existing.remove();
+  }
+  const panel = document.createElement("div");
+  panel.id = WHICH_KEY_PANEL_ID;
+  const header = document.createElement("div");
+  header.className = `${WHICH_KEY_PANEL_ID}--header`;
+  header.textContent = path.join(" ") + " -";
+  panel.appendChild(header);
+  const grid = document.createElement("div");
+  grid.className = `${WHICH_KEY_PANEL_ID}--grid`;
+  const keys = Object.entries(node.keys || {});
+  keys.forEach(([key, value]) => {
+    const item = document.createElement("div");
+    item.className = `${WHICH_KEY_PANEL_ID}--item`;
+    const keySpan = document.createElement("span");
+    keySpan.className = `${WHICH_KEY_PANEL_ID}--key`;
+    keySpan.textContent = key;
+    const nameSpan = document.createElement("span");
+    nameSpan.className = `${WHICH_KEY_PANEL_ID}--name`;
+    nameSpan.textContent = value.name;
+    const isGroup = value.keys !== void 0;
+    if (isGroup) {
+      nameSpan.classList.add(`${WHICH_KEY_PANEL_ID}--group`);
+    }
+    item.appendChild(keySpan);
+    item.appendChild(nameSpan);
+    grid.appendChild(item);
+  });
+  panel.appendChild(grid);
+  document.body.appendChild(panel);
 }
 
 // src/commands.js
@@ -1483,10 +1614,528 @@ function toggleFold() {
   RoamBlock.selected().toggleFold();
 }
 
+// src/leader-config.js
+function getSelectedBlockUid() {
+  const panel = VimRoamPanel.selected();
+  if (!panel)
+    return null;
+  const block = panel.selectedBlock();
+  return block?.id || null;
+}
+function getCurrentPageUid() {
+  if (window.roamAlphaAPI?.ui?.mainWindow?.getOpenPageOrBlockUid) {
+    return window.roamAlphaAPI.ui.mainWindow.getOpenPageOrBlockUid();
+  }
+  const match = window.location.hash.match(/\/page\/([a-zA-Z0-9_-]+)/);
+  return match ? match[1] : null;
+}
+function promptUser(message, defaultValue = "") {
+  return window.prompt(message, defaultValue);
+}
+var DEFAULT_LEADER_CONFIG = {
+  name: "+leader",
+  keys: {
+    // Block operations
+    "b": {
+      name: "+block",
+      keys: {
+        "y": { name: "Copy block", command: "copyBlock" },
+        "r": { name: "Copy reference", command: "copyBlockReference" },
+        "e": { name: "Copy embed", command: "copyBlockEmbed" },
+        "p": { name: "Paste after", command: "paste" },
+        "P": { name: "Paste before", command: "pasteBefore" },
+        "d": { name: "Delete block", command: "deleteBlock" },
+        "x": { name: "Cut block", command: "cutBlock" },
+        "n": { name: "New block below", command: "createBlockBelow" },
+        "N": { name: "New block above", command: "createBlockAbove" },
+        "o": { name: "Open in sidebar", command: "openBlockInSidebar" },
+        "m": { name: "Show mentions", command: "showBlockMentions" },
+        "z": { name: "Zoom into block", command: "zoomIntoBlock" }
+      }
+    },
+    // Goto/Navigation
+    "g": {
+      name: "+goto",
+      keys: {
+        "g": { name: "First block", command: "selectFirstBlock" },
+        "G": { name: "Last block", command: "selectLastBlock" },
+        "d": { name: "Daily Notes", command: "gotoDailyNotes" },
+        "p": { name: "Go to page...", command: "gotoPage" },
+        "b": { name: "Go to block...", command: "gotoBlock" },
+        "h": { name: "Go home (Daily Notes)", command: "gotoDailyNotes" },
+        "l": { name: "Go to linked refs", command: "gotoLinkedRefs" }
+      }
+    },
+    // Window/Panel operations
+    "w": {
+      name: "+window",
+      keys: {
+        "h": { name: "Panel left", command: "selectPanelLeft" },
+        "l": { name: "Panel right", command: "selectPanelRight" },
+        "o": { name: "Open right sidebar", command: "openRightSidebar" },
+        "c": { name: "Close right sidebar", command: "closeRightSidebar" },
+        "d": { name: "Close sidebar page", command: "closeSidebarPage" },
+        "L": { name: "Toggle left sidebar", command: "toggleLeftSidebar" },
+        "a": { name: "Add block to sidebar", command: "openBlockInSidebar" },
+        "m": { name: "Add mentions to sidebar", command: "showBlockMentions" },
+        "g": { name: "Add graph to sidebar", command: "showGraphInSidebar" },
+        "s": { name: "Search in sidebar", command: "searchInSidebar" }
+      }
+    },
+    // Search operations
+    "s": {
+      name: "+search",
+      keys: {
+        "s": { name: "Command palette", command: "openCommandPalette" },
+        "p": { name: "Find page", command: "openSearch" },
+        "/": { name: "Search in page", command: "searchInPage" },
+        "r": { name: "Search in sidebar", command: "searchInSidebar" },
+        "g": { name: "Graph search", command: "graphSearch" }
+      }
+    },
+    // Page operations
+    "p": {
+      name: "+page",
+      keys: {
+        "n": { name: "New page", command: "createPage" },
+        "d": { name: "Delete page", command: "deletePage" },
+        "r": { name: "Rename page", command: "renamePage" },
+        "o": { name: "Open in sidebar", command: "openPageInSidebar" },
+        "m": { name: "Show mentions", command: "showPageMentions" },
+        "g": { name: "Show graph", command: "showPageGraph" }
+      }
+    },
+    // Toggle operations
+    "t": {
+      name: "+toggle",
+      keys: {
+        "f": { name: "Fold/Unfold", command: "toggleFold" },
+        "l": { name: "Left sidebar", command: "toggleLeftSidebar" },
+        "r": { name: "Right sidebar", command: "toggleRightSidebar" }
+      }
+    },
+    // Focus operations
+    "f": {
+      name: "+focus",
+      keys: {
+        "f": { name: "Focus first block", command: "focusFirstBlock" },
+        "b": { name: "Focus current block", command: "focusCurrentBlock" }
+      }
+    },
+    // History - single key commands
+    "u": { name: "Undo", command: "undo" },
+    "r": { name: "Redo", command: "redo" },
+    // Help
+    "?": { name: "Help", command: "showHelpPanel" }
+  }
+};
+var LEADER_COMMAND_REGISTRY = {
+  // ==================== Block Operations ====================
+  copyBlock: () => copySelectedBlock(Mode.NORMAL),
+  copyBlockReference: copySelectedBlockReference,
+  copyBlockEmbed: copySelectedBlockEmbed,
+  paste,
+  pasteBefore,
+  cutBlock: () => enterOrCutInVisualMode(Mode.VISUAL),
+  deleteBlock: () => {
+    const uid = getSelectedBlockUid();
+    if (!uid) {
+      console.warn("[Vim Mode] No block selected");
+      return;
+    }
+    if (window.roamAlphaAPI?.data?.block?.delete) {
+      window.roamAlphaAPI.data.block.delete({ block: { uid } });
+    } else {
+      enterOrCutInVisualMode(Mode.VISUAL);
+    }
+  },
+  createBlockBelow: () => {
+    const uid = getSelectedBlockUid();
+    if (!uid)
+      return;
+    if (window.roamAlphaAPI?.data?.block?.create) {
+      const blockInfo = window.roamAlphaAPI.data.pull("[{:block/parents [:block/uid :block/order]}]", [":block/uid", uid]);
+      if (blockInfo) {
+        const parentUid = blockInfo[":block/parents"]?.[0]?.[":block/uid"];
+        if (parentUid) {
+          window.roamAlphaAPI.data.block.create({
+            location: { "parent-uid": parentUid, order: "last" },
+            block: { string: "" }
+          }).then(() => {
+            window.roamAlphaAPI.ui.mainWindow.focusFirstBlock?.();
+          });
+        }
+      }
+    }
+  },
+  createBlockAbove: () => {
+    const uid = getSelectedBlockUid();
+    if (!uid)
+      return;
+    if (window.roamAlphaAPI?.data?.block?.create) {
+      const blockInfo = window.roamAlphaAPI.data.pull("[{:block/parents [:block/uid]} :block/order]", [":block/uid", uid]);
+      if (blockInfo) {
+        const parentUid = blockInfo[":block/parents"]?.[0]?.[":block/uid"];
+        const order = blockInfo[":block/order"] || 0;
+        if (parentUid) {
+          window.roamAlphaAPI.data.block.create({
+            location: { "parent-uid": parentUid, order },
+            block: { string: "" }
+          });
+        }
+      }
+    }
+  },
+  openBlockInSidebar: () => {
+    const uid = getSelectedBlockUid();
+    if (!uid)
+      return;
+    if (window.roamAlphaAPI?.ui?.rightSidebar?.addWindow) {
+      window.roamAlphaAPI.ui.rightSidebar.addWindow({
+        window: { type: "block", "block-uid": uid }
+      });
+    }
+  },
+  showBlockMentions: () => {
+    const uid = getSelectedBlockUid();
+    if (!uid)
+      return;
+    if (window.roamAlphaAPI?.ui?.rightSidebar?.addWindow) {
+      window.roamAlphaAPI.ui.rightSidebar.addWindow({
+        window: { type: "mentions", "block-uid": uid }
+      });
+    }
+  },
+  zoomIntoBlock: () => {
+    const uid = getSelectedBlockUid();
+    if (!uid)
+      return;
+    if (window.roamAlphaAPI?.ui?.mainWindow?.openBlock) {
+      window.roamAlphaAPI.ui.mainWindow.openBlock({ block: { uid } });
+    }
+  },
+  // ==================== Navigation ====================
+  selectFirstBlock,
+  selectLastBlock,
+  gotoDailyNotes: () => {
+    if (window.roamAlphaAPI?.ui?.mainWindow?.openDailyNotes) {
+      window.roamAlphaAPI.ui.mainWindow.openDailyNotes();
+    } else {
+      const dailyNotesLink = document.querySelector(".rm-topbar .bp3-icon-calendar");
+      if (dailyNotesLink) {
+        dailyNotesLink.click();
+      }
+    }
+  },
+  gotoPage: () => {
+    const title = promptUser("Enter page title:");
+    if (!title)
+      return;
+    if (window.roamAlphaAPI?.ui?.mainWindow?.openPage) {
+      window.roamAlphaAPI.ui.mainWindow.openPage({ page: { title } });
+    }
+  },
+  gotoBlock: () => {
+    const uid = promptUser("Enter block UID:");
+    if (!uid)
+      return;
+    if (window.roamAlphaAPI?.ui?.mainWindow?.openBlock) {
+      window.roamAlphaAPI.ui.mainWindow.openBlock({ block: { uid } });
+    }
+  },
+  gotoLinkedRefs: () => {
+    const linkedRefs = document.querySelector(".rm-reference-main");
+    if (linkedRefs) {
+      linkedRefs.scrollIntoView({ behavior: "smooth" });
+    }
+  },
+  // ==================== Window/Panel Operations ====================
+  selectPanelLeft,
+  selectPanelRight,
+  closeSidebarPage,
+  openRightSidebar: () => {
+    if (window.roamAlphaAPI?.ui?.rightSidebar?.open) {
+      window.roamAlphaAPI.ui.rightSidebar.open();
+    }
+  },
+  closeRightSidebar: () => {
+    if (window.roamAlphaAPI?.ui?.rightSidebar?.close) {
+      window.roamAlphaAPI.ui.rightSidebar.close();
+    }
+  },
+  toggleLeftSidebar: () => {
+    const leftSidebar = document.querySelector(".roam-sidebar-container");
+    const isOpen = leftSidebar && !leftSidebar.classList.contains("rm-sidebar-closed");
+    if (isOpen) {
+      if (window.roamAlphaAPI?.ui?.leftSidebar?.close) {
+        window.roamAlphaAPI.ui.leftSidebar.close();
+      }
+    } else {
+      if (window.roamAlphaAPI?.ui?.leftSidebar?.open) {
+        window.roamAlphaAPI.ui.leftSidebar.open();
+      }
+    }
+  },
+  toggleRightSidebar: () => {
+    const rightSidebar = document.getElementById("right-sidebar");
+    const isOpen = rightSidebar && rightSidebar.classList.contains("open");
+    if (isOpen) {
+      if (window.roamAlphaAPI?.ui?.rightSidebar?.close) {
+        window.roamAlphaAPI.ui.rightSidebar.close();
+      }
+    } else {
+      if (window.roamAlphaAPI?.ui?.rightSidebar?.open) {
+        window.roamAlphaAPI.ui.rightSidebar.open();
+      }
+    }
+  },
+  showGraphInSidebar: () => {
+    const uid = getCurrentPageUid();
+    if (!uid)
+      return;
+    if (window.roamAlphaAPI?.ui?.rightSidebar?.addWindow) {
+      window.roamAlphaAPI.ui.rightSidebar.addWindow({
+        window: { type: "graph", "block-uid": uid }
+      });
+    }
+  },
+  searchInSidebar: () => {
+    const query = promptUser("Enter search query:");
+    if (!query)
+      return;
+    if (window.roamAlphaAPI?.ui?.rightSidebar?.addWindow) {
+      window.roamAlphaAPI.ui.rightSidebar.addWindow({
+        window: { type: "search-query", "search-query-str": query }
+      });
+    }
+  },
+  // ==================== Search Operations ====================
+  openCommandPalette: () => {
+    if (window.roamAlphaAPI?.ui?.commandPalette?.open) {
+      window.roamAlphaAPI.ui.commandPalette.open();
+    } else {
+      document.dispatchEvent(new KeyboardEvent("keydown", {
+        key: "p",
+        code: "KeyP",
+        keyCode: 80,
+        metaKey: true,
+        bubbles: true,
+        cancelable: true
+      }));
+    }
+  },
+  openSearch: () => {
+    if (window.roamAlphaAPI?.ui?.commandPalette?.open) {
+      window.roamAlphaAPI.ui.commandPalette.open();
+    } else {
+      const searchButton = document.querySelector(".rm-topbar .bp3-icon-search");
+      if (searchButton) {
+        searchButton.click();
+      }
+    }
+  },
+  searchInPage: () => {
+    document.dispatchEvent(new KeyboardEvent("keydown", {
+      key: "f",
+      code: "KeyF",
+      keyCode: 70,
+      metaKey: true,
+      bubbles: true,
+      cancelable: true
+    }));
+  },
+  graphSearch: () => {
+    const query = promptUser("Enter graph search query:");
+    if (!query)
+      return;
+    if (window.roamAlphaAPI?.data?.search) {
+      const results = window.roamAlphaAPI.data.search({ "search-str": query, limit: 20 });
+      console.log("[Vim Mode] Graph search results:", results);
+      if (results && results.length > 0) {
+        const firstResult = results[0];
+        const uid = firstResult[":block/uid"] || firstResult[":node/title"];
+        if (uid && window.roamAlphaAPI?.ui?.mainWindow?.openBlock) {
+          window.roamAlphaAPI.ui.mainWindow.openBlock({ block: { uid } });
+        }
+      }
+    }
+  },
+  // ==================== Page Operations ====================
+  createPage: () => {
+    const title = promptUser("Enter new page title:");
+    if (!title)
+      return;
+    if (window.roamAlphaAPI?.data?.page?.create) {
+      window.roamAlphaAPI.data.page.create({ page: { title } }).then(() => {
+        if (window.roamAlphaAPI?.ui?.mainWindow?.openPage) {
+          window.roamAlphaAPI.ui.mainWindow.openPage({ page: { title } });
+        }
+      });
+    }
+  },
+  deletePage: () => {
+    const uid = getCurrentPageUid();
+    if (!uid) {
+      console.warn("[Vim Mode] No page currently open");
+      return;
+    }
+    const confirmed = window.confirm("Are you sure you want to delete this page?");
+    if (!confirmed)
+      return;
+    if (window.roamAlphaAPI?.data?.page?.delete) {
+      window.roamAlphaAPI.data.page.delete({ page: { uid } });
+      if (window.roamAlphaAPI?.ui?.mainWindow?.openDailyNotes) {
+        window.roamAlphaAPI.ui.mainWindow.openDailyNotes();
+      }
+    }
+  },
+  renamePage: () => {
+    const uid = getCurrentPageUid();
+    if (!uid)
+      return;
+    const pageInfo = window.roamAlphaAPI?.data?.pull?.("[:node/title]", [":block/uid", uid]);
+    const currentTitle = pageInfo?.[":node/title"] || "";
+    const newTitle = promptUser("Enter new page title:", currentTitle);
+    if (!newTitle || newTitle === currentTitle)
+      return;
+    if (window.roamAlphaAPI?.data?.page?.update) {
+      window.roamAlphaAPI.data.page.update({ page: { uid, title: newTitle } });
+    }
+  },
+  openPageInSidebar: () => {
+    const uid = getCurrentPageUid();
+    if (!uid)
+      return;
+    if (window.roamAlphaAPI?.ui?.rightSidebar?.addWindow) {
+      window.roamAlphaAPI.ui.rightSidebar.addWindow({
+        window: { type: "outline", "block-uid": uid }
+      });
+    }
+  },
+  showPageMentions: () => {
+    const uid = getCurrentPageUid();
+    if (!uid)
+      return;
+    if (window.roamAlphaAPI?.ui?.rightSidebar?.addWindow) {
+      window.roamAlphaAPI.ui.rightSidebar.addWindow({
+        window: { type: "mentions", "block-uid": uid }
+      });
+    }
+  },
+  showPageGraph: () => {
+    const uid = getCurrentPageUid();
+    if (!uid)
+      return;
+    if (window.roamAlphaAPI?.ui?.rightSidebar?.addWindow) {
+      window.roamAlphaAPI.ui.rightSidebar.addWindow({
+        window: { type: "graph", "block-uid": uid }
+      });
+    }
+  },
+  // ==================== Toggle Operations ====================
+  toggleFold,
+  // ==================== Focus Operations ====================
+  focusFirstBlock: () => {
+    if (window.roamAlphaAPI?.ui?.mainWindow?.focusFirstBlock) {
+      window.roamAlphaAPI.ui.mainWindow.focusFirstBlock();
+    }
+  },
+  focusCurrentBlock: () => {
+    const uid = getSelectedBlockUid();
+    if (!uid)
+      return;
+    if (window.roamAlphaAPI?.ui?.setBlockFocusAndSelection) {
+      window.roamAlphaAPI.ui.setBlockFocusAndSelection({
+        location: { "block-uid": uid, "window-id": "main-window" }
+      });
+    }
+  },
+  // ==================== History ====================
+  undo: () => {
+    if (window.roamAlphaAPI?.data?.undo) {
+      window.roamAlphaAPI.data.undo();
+    } else {
+      undo();
+    }
+  },
+  redo: () => {
+    if (window.roamAlphaAPI?.data?.redo) {
+      window.roamAlphaAPI.data.redo();
+    } else {
+      redo();
+    }
+  },
+  // ==================== Help ====================
+  showHelpPanel
+};
+
+// src/settings.js
+var extensionAPIRef = null;
+var SETTING_SPACEMACS_ENABLED = "spacemacs-enabled";
+function setExtensionAPI(api) {
+  extensionAPIRef = api;
+}
+function isSpacemacsEnabled() {
+  if (!extensionAPIRef)
+    return false;
+  return extensionAPIRef.settings.get(SETTING_SPACEMACS_ENABLED) === true;
+}
+
 // src/keybindings.js
 var sequenceBuffer = "";
 var sequenceTimeout = null;
 var SEQUENCE_PREFIXES = ["g", "z"];
+var leaderConfig = DEFAULT_LEADER_CONFIG;
+var leaderState = {
+  active: false,
+  currentNode: leaderConfig,
+  path: []
+};
+function setLeaderConfig(config) {
+  leaderConfig = config;
+  leaderState.currentNode = leaderConfig;
+}
+function enterLeaderMode() {
+  leaderState.active = true;
+  leaderState.currentNode = leaderConfig;
+  leaderState.path = ["SPC"];
+  showWhichKey(leaderConfig, ["SPC"]);
+}
+function resetLeaderState() {
+  leaderState.active = false;
+  leaderState.currentNode = leaderConfig;
+  leaderState.path = [];
+  hideWhichKey();
+}
+function handleLeaderSequence(key, event) {
+  const currentNode = leaderState.currentNode;
+  if (currentNode.keys && currentNode.keys[key]) {
+    const nextNode = currentNode.keys[key];
+    if (nextNode.keys) {
+      leaderState.currentNode = nextNode;
+      leaderState.path.push(key);
+      showWhichKeyImmediate(nextNode, [...leaderState.path]);
+      return true;
+    } else if (nextNode.action) {
+      try {
+        nextNode.action();
+      } catch (error) {
+        console.error("[Roam Vim Mode] Error executing action:", error);
+      }
+      resetLeaderState();
+      return true;
+    } else if (nextNode.command) {
+      const commandFn = LEADER_COMMAND_REGISTRY[nextNode.command];
+      if (commandFn) {
+        commandFn();
+      }
+      resetLeaderState();
+      return true;
+    }
+  }
+  resetLeaderState();
+  return false;
+}
 function handleKeydown(event) {
   const mode = getMode();
   const key = event.key.toLowerCase();
@@ -1528,6 +2177,23 @@ function handleKeydown(event) {
     return;
   }
   if (key === "escape" && document.querySelector(Selectors.commandBar)) {
+    return;
+  }
+  if (leaderState.active) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (key === "escape") {
+      resetLeaderState();
+      return;
+    }
+    const leaderKey = event.shiftKey && event.key.length === 1 ? event.key : key;
+    handleLeaderSequence(leaderKey, event);
+    return;
+  }
+  if (mode === Mode.NORMAL && event.key === " " && !hasModifier && isSpacemacsEnabled()) {
+    event.preventDefault();
+    event.stopPropagation();
+    enterLeaderMode();
     return;
   }
   if (event.metaKey && !(event.shiftKey && (key === "k" || key === "j"))) {
@@ -1910,6 +2576,90 @@ var VIM_MODE_STYLES = `
     color: #98C1D9;
 }
 
+/* Which-key popup */
+#${WHICH_KEY_PANEL_ID} {
+    position: fixed;
+    bottom: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    min-width: 300px;
+    max-width: 80vw;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    z-index: 19999;
+    padding: 12px;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.bp3-dark #${WHICH_KEY_PANEL_ID} {
+    background: #30404d;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.${WHICH_KEY_PANEL_ID}--header {
+    font-size: 14px;
+    font-weight: 600;
+    color: #6a737d;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e1e4e8;
+}
+
+.bp3-dark .${WHICH_KEY_PANEL_ID}--header {
+    color: #a7b6c2;
+    border-bottom-color: #5c7080;
+}
+
+.${WHICH_KEY_PANEL_ID}--grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 6px 16px;
+}
+
+.${WHICH_KEY_PANEL_ID}--item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+}
+
+.${WHICH_KEY_PANEL_ID}--key {
+    font-family: monospace;
+    font-size: 12px;
+    font-weight: bold;
+    background: #eef1f4;
+    padding: 2px 8px;
+    border-radius: 3px;
+    color: #2196F3;
+    min-width: 24px;
+    text-align: center;
+}
+
+.bp3-dark .${WHICH_KEY_PANEL_ID}--key {
+    background: #293742;
+    color: #48aff0;
+}
+
+.${WHICH_KEY_PANEL_ID}--name {
+    font-size: 13px;
+    color: #24292e;
+}
+
+.bp3-dark .${WHICH_KEY_PANEL_ID}--name {
+    color: #f5f8fa;
+}
+
+.${WHICH_KEY_PANEL_ID}--group {
+    color: #9C27B0;
+    font-weight: 500;
+}
+
+.bp3-dark .${WHICH_KEY_PANEL_ID}--group {
+    color: #ce93d8;
+}
+
+/* Search */
 #${SEARCH_INPUT_ID} {
     position: fixed;
     bottom: 0;
@@ -2020,12 +2770,128 @@ function removeModeIndicator() {
   }
 }
 
+// src/user-config.js
+var CONFIG_PAGE_TITLE = "roam/js/vim-mode";
+function deepMerge(target, source) {
+  const result = { ...target };
+  for (const key in source) {
+    if (source[key] && typeof source[key] === "object" && !Array.isArray(source[key]) && typeof source[key] !== "function") {
+      if (target[key] && typeof target[key] === "object" && !Array.isArray(target[key])) {
+        result[key] = deepMerge(target[key], source[key]);
+      } else {
+        result[key] = source[key];
+      }
+    } else {
+      result[key] = source[key];
+    }
+  }
+  return result;
+}
+function getPageUidByTitle(title) {
+  if (!window.roamAlphaAPI)
+    return null;
+  const result = window.roamAlphaAPI.q(`
+        [:find ?uid
+         :where
+         [?e :node/title "${title}"]
+         [?e :block/uid ?uid]]
+    `);
+  return result?.[0]?.[0] || null;
+}
+function getPageBlocks(pageUid) {
+  if (!window.roamAlphaAPI || !pageUid)
+    return [];
+  const result = window.roamAlphaAPI.q(`
+        [:find ?string ?order
+         :where
+         [?page :block/uid "${pageUid}"]
+         [?page :block/children ?child]
+         [?child :block/string ?string]
+         [?child :block/order ?order]]
+    `);
+  return result.sort((a, b) => a[1] - b[1]).map((r) => r[0]);
+}
+function extractJavaScriptCode(blockString) {
+  const codeBlockMatch = blockString.match(/```(?:javascript|js)\s*([\s\S]*?)```/);
+  if (codeBlockMatch) {
+    return codeBlockMatch[1].trim();
+  }
+  return null;
+}
+function evaluateConfigCode(code) {
+  try {
+    const fn = new Function(code);
+    const result = fn();
+    return result;
+  } catch (error) {
+    console.error("[Roam Vim Mode] Error evaluating user config:", error);
+    return null;
+  }
+}
+async function loadUserConfig() {
+  try {
+    if (!window.roamAlphaAPI) {
+      console.log("[Roam Vim Mode] roamAlphaAPI not available, skipping user config");
+      return null;
+    }
+    const pageUid = getPageUidByTitle(CONFIG_PAGE_TITLE);
+    if (!pageUid) {
+      console.log(`[Roam Vim Mode] Config page "${CONFIG_PAGE_TITLE}" not found`);
+      return null;
+    }
+    const blocks = getPageBlocks(pageUid);
+    if (blocks.length === 0) {
+      console.log("[Roam Vim Mode] Config page is empty");
+      return null;
+    }
+    for (const block of blocks) {
+      const code = extractJavaScriptCode(block);
+      if (code) {
+        console.log("[Roam Vim Mode] Found user config code");
+        const config = evaluateConfigCode(code);
+        if (config && typeof config === "object") {
+          console.log("[Roam Vim Mode] User config loaded successfully");
+          return config;
+        }
+      }
+    }
+    console.log("[Roam Vim Mode] No valid JavaScript config found");
+    return null;
+  } catch (error) {
+    console.error("[Roam Vim Mode] Error loading user config:", error);
+    return null;
+  }
+}
+function mergeConfigs(defaultConfig, userConfig) {
+  if (!userConfig) {
+    return defaultConfig;
+  }
+  const mergedKeys = deepMerge(defaultConfig.keys || {}, userConfig);
+  return {
+    ...defaultConfig,
+    keys: mergedKeys
+  };
+}
+
 // src/extension.js
 var disconnectHandlers = [];
 var keydownHandler = null;
+async function loadAndApplyUserConfig() {
+  try {
+    const userConfig = await loadUserConfig();
+    if (userConfig) {
+      const mergedConfig = mergeConfigs(DEFAULT_LEADER_CONFIG, userConfig);
+      setLeaderConfig(mergedConfig);
+      console.log("[Roam Vim Mode] User config applied");
+    }
+  } catch (error) {
+    console.error("[Roam Vim Mode] Failed to load user config:", error);
+  }
+}
 function startVimMode() {
   waitForSelectorToExist(Selectors.mainContent).then(async () => {
     await delay(300);
+    await loadAndApplyUserConfig();
     disconnectHandlers = [
       RoamEvent.onEditBlock((blockElement) => {
         VimRoamPanel.fromBlock(blockElement).select();
@@ -2060,6 +2926,7 @@ function stopVimMode() {
   disconnectHandlers.forEach((disconnect) => disconnect());
   disconnectHandlers = [];
   clearVimView();
+  hideWhichKey();
   if (keydownHandler) {
     document.removeEventListener("keydown", keydownHandler, true);
     keydownHandler = null;
@@ -2071,6 +2938,20 @@ function stopVimMode() {
 }
 function onload({ extensionAPI }) {
   console.log("Roam Vim Mode extension loaded");
+  setExtensionAPI(extensionAPI);
+  extensionAPI.settings.panel.create({
+    tabTitle: "Vim Mode",
+    settings: [
+      {
+        id: SETTING_SPACEMACS_ENABLED,
+        name: "Enable Spacemacs-style Leader Key (Experimental)",
+        description: "Press Space in Normal mode to open a command menu with which-key popup. Allows multi-key sequences like SPC b y to copy block.",
+        action: {
+          type: "switch"
+        }
+      }
+    ]
+  });
   injectStyle(VIM_MODE_STYLES, `${EXTENSION_ID}--styles`);
   createModeIndicator();
   startVimMode();
@@ -2082,6 +2963,7 @@ function onunload() {
   removeModeIndicator();
   hideHelpPanel();
   hidePageHints();
+  hideWhichKey();
 }
 var extension_default = {
   onload,
