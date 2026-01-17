@@ -47,6 +47,7 @@ const Selectors = {
     pageReferenceItem: '.rm-ref-page-view',
     pageReferenceLink: '.rm-ref-page-view-title a span',
     filterButton: '.bp3-icon.bp3-icon-filter',
+    commandBar: '.bp3-omnibar',
     escapeHtmlId: (htmlId) => htmlId.replace('.', '\\.').replace('@', '\\@'),
 };
 
@@ -769,7 +770,8 @@ function getMode() {
     if (pageHintState.active) {
         return Mode.HINT;
     }
-    if (getActiveEditElement()) {
+    // Don't consider command bar (Cmd+P) as INSERT mode
+    if (getActiveEditElement() && !document.querySelector(Selectors.commandBar)) {
         return Mode.INSERT;
     }
     if (document.querySelector(Selectors.highlight)) {
@@ -1353,6 +1355,11 @@ function handleKeydown(event) {
 
     // Don't intercept when in insert mode unless it's Escape
     if (mode === Mode.INSERT && key !== 'escape') {
+        return;
+    }
+
+    // Let ESC pass through to Roam when command bar (Cmd+P) is open
+    if (key === 'escape' && document.querySelector(Selectors.commandBar)) {
         return;
     }
 
