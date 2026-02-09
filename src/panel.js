@@ -3,7 +3,7 @@
  */
 
 import { Selectors, PANEL_CSS_CLASS, PANEL_SELECTOR, SCROLL_PADDING } from './constants.js';
-import { assumeExists, relativeItem, clamp, findLast } from './utils.js';
+import { assumeExists, relativeItem, clamp, findLast, delay } from './utils.js';
 import { Roam } from './roam.js';
 
 // ============== Panel State ==============
@@ -185,6 +185,103 @@ export class VimRoamPanel {
 
     lastVisibleBlock() {
         return assumeExists(findLast(this.blocks(), blockIsVisible), 'Could not find any visible block');
+    }
+
+    /**
+     * Find the parent block of the current block
+     * @returns {RoamBlock|null} The parent block or null if none exists
+     */
+    findParentBlock(currentBlockElement) {
+        // Roam's structure:
+        // parent .roam-block-container
+        //   └── .rm-block-children
+        //       └── current .roam-block-container
+
+        const currentContainer = currentBlockElement.closest(Selectors.blockContainer);
+        if (!currentContainer) return null;
+
+        // Find the .rm-block-children that contains this block
+        const childrenContainer = currentContainer.parentElement;
+        if (!childrenContainer || !childrenContainer.classList.contains('rm-block-children')) {
+            // We're at the top level, no parent
+            return null;
+        }
+
+        // The parent is the .roam-block-container that contains the .rm-block-children
+        const parentContainer = childrenContainer.parentElement;
+        if (!parentContainer || parentContainer === currentContainer) return null;
+
+        const parentBlock = parentContainer.querySelector(Selectors.block);
+        return parentBlock ? new RoamBlock(parentBlock) : null;
+    }
+
+    /**
+     * Find the first child block of the current block
+     * @returns {RoamBlock|null} The first child block or null if none exists
+     */
+    findFirstChildBlock(currentBlockElement) {
+        // Roam's structure:
+        // current .roam-block-container
+        //   ├── .rm-block-main (contains the actual block content)
+        //   └── .rm-block-children (contains child blocks)
+        //       └── child .roam-block-container
+
+        const currentContainer = currentBlockElement.closest(Selectors.blockContainer);
+        if (!currentContainer) return null;
+
+        // .rm-block-children is a child of currentContainer, not a sibling
+        const childrenContainer = currentContainer.querySelector('.rm-block-children');
+        if (!childrenContainer) return null;
+
+        // Find the first .roam-block-container within the children
+        const childContainer = childrenContainer.querySelector(Selectors.blockContainer);
+        if (!childContainer) return null;
+
+        const childBlock = childContainer.querySelector(Selectors.block);
+        return childBlock ? new RoamBlock(childBlock) : null;
+    }
+
+    /**
+     * Select the parent block of the currently selected block
+     * @returns {boolean} True if parent block was found and selected
+     */
+    selectParentBlock() {
+        const currentBlock = this.selectedBlock().element;
+        const parentBlock = this.findParentBlock(currentBlock);
+
+        if (parentBlock) {
+            this.selectBlock(parentBlock.id);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Select the first child block of the currently selected block
+     * Automatically expands folded blocks if necessary
+     * @returns {Promise<boolean>} True if child block was found and selected
+     */
+    async selectFirstChildBlock() {
+        const currentBlock = this.selectedBlock().element;
+        let childBlock = this.findFirstChildBlock(currentBlock);
+
+        // If no child found, check if block is folded and expand it
+        if (!childBlock) {
+            const foldButton = currentBlock.querySelector(Selectors.foldButton);
+            if (foldButton && foldButton.classList.contains('rm-caret-closed')) {
+                // Block is folded, expand it
+                await Roam.toggleFoldBlock(currentBlock);
+                // Try again after expansion
+                await delay(50);
+                childBlock = this.findFirstChildBlock(currentBlock);
+            }
+        }
+
+        if (childBlock) {
+            this.selectBlock(childBlock.id);
+            return true;
+        }
+        return false;
     }
 }
 

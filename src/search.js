@@ -8,6 +8,8 @@ import {
     SEARCH_HIGHLIGHT_CSS_CLASS,
     SEARCH_CURRENT_CSS_CLASS,
 } from './constants.js';
+import { VimRoamPanel } from './panel.js';
+import { updateVimView } from './view.js';
 
 // ============== Search State ==============
 export const searchState = {
@@ -16,6 +18,7 @@ export const searchState = {
     matches: [],       // Array of { element, textNode, startIndex, endIndex }
     currentIndex: -1,  // Current match index
     lastQuery: '',     // Remember last search for n/N commands
+    highlightsActive: false,  // Whether search highlights are currently displayed
 };
 
 // ============== Enter Search Mode ==============
@@ -55,6 +58,10 @@ export function exitSearchMode(clearHighlights = true) {
         clearSearchHighlights();
         searchState.matches = [];
         searchState.currentIndex = -1;
+        searchState.highlightsActive = false;
+    } else if (searchState.matches.length > 0) {
+        // Search completed with highlights - mark them as active
+        searchState.highlightsActive = true;
     }
 }
 
@@ -265,6 +272,13 @@ export function navigateToMatch(index) {
             block: 'center',
         });
     }
+
+    // Update selected block to the block containing the current highlight
+    if (match && match.element) {
+        const panel = VimRoamPanel.fromBlock(match.element);
+        panel.selectBlock(match.element.id);
+        updateVimView();
+    }
 }
 
 // ============== Next/Previous Match ==============
@@ -294,4 +308,19 @@ export function previousMatch() {
         return;
     }
     navigateToMatch(searchState.currentIndex - 1);
+}
+
+// ============== Clear Search Highlights If Active ==============
+/**
+ * Clear search highlights when entering other modes (INSERT, VISUAL, HINT).
+ * This preserves the lastQuery so n/N can still be used to search again.
+ */
+export function clearSearchHighlightsIfActive() {
+    if (searchState.highlightsActive && searchState.matches.length > 0) {
+        clearSearchHighlights();
+        searchState.matches = [];
+        searchState.currentIndex = -1;
+        searchState.highlightsActive = false;
+        // Keep lastQuery so n/N can still work
+    }
 }

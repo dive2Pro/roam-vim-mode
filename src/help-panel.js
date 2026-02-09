@@ -11,6 +11,8 @@ const KEYBINDINGS = {
         { key: 'k', description: 'Move up' },
         { key: 'h', description: 'Switch to left panel' },
         { key: 'l', description: 'Switch to right panel' },
+        { key: 'H', description: 'Go to parent block' },
+        { key: 'L', description: 'Go to first child block' },
         { key: 'gg', description: 'Jump to first block' },
         { key: 'G', description: 'Jump to last block' },
     ],

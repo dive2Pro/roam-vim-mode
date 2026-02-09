@@ -6,6 +6,7 @@ import { Selectors } from './constants.js';
 import { getActiveEditElement } from './utils.js';
 import { pageHintState } from './page-hints.js';
 import { searchState } from './search.js';
+import { clearSearchHighlightsIfActive } from './search.js';
 
 // ============== Mode Enum ==============
 export const Mode = {
@@ -18,18 +19,27 @@ export const Mode = {
 
 // ============== Get Current Mode ==============
 export function getMode() {
+    let currentMode;
+
     if (searchState.active) {
-        return Mode.SEARCH;
+        currentMode = Mode.SEARCH;
+    } else if (pageHintState.active) {
+        currentMode = Mode.HINT;
+    } else if (getActiveEditElement() && !document.querySelector(Selectors.commandBar)) {
+        currentMode = Mode.INSERT;
+    } else if (document.querySelector(Selectors.highlight)) {
+        currentMode = Mode.VISUAL;
+    } else {
+        currentMode = Mode.NORMAL;
     }
-    if (pageHintState.active) {
-        return Mode.HINT;
+
+    // Clear search highlights when entering INSERT, VISUAL, or HINT mode
+    // This allows n/N navigation in NORMAL mode after search completes
+    if (searchState.highlightsActive) {
+        if (currentMode === Mode.INSERT || currentMode === Mode.VISUAL || currentMode === Mode.HINT) {
+            clearSearchHighlightsIfActive();
+        }
     }
-    // Don't consider command bar (Cmd+P) as INSERT mode
-    if (getActiveEditElement() && !document.querySelector(Selectors.commandBar)) {
-        return Mode.INSERT;
-    }
-    if (document.querySelector(Selectors.highlight)) {
-        return Mode.VISUAL;
-    }
-    return Mode.NORMAL;
+
+    return currentMode;
 }

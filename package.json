@@ -1,12 +1,16 @@
 {
   "name": "roam-vim-mode",
   "version": "1.0.0",
-  "type": "module",
-  "scripts": {
-    "build": "node build.js",
-    "watch": "node build.js --watch"
+  "dependencies": {
+    "@esbuild/darwin-x64": "^0.27.3"
   },
+  "scripts": {
+    "build": "esbuild src/extension.js --bundle --outfile=extension.js --format=esm --target=es2020",
+    "watch": "esbuild src/extension.js --bundle --outfile=extension.js --format=esm --target=es2020 --watch=forever"
+  },
+  "type": "module",
   "devDependencies": {
-    "esbuild": "^0.20.0"
+    "esbuild": "^0.27.3",
+    "esbuild-wasm": "^0.27.3"
   }
 }

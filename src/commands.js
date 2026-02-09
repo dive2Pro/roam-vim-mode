@@ -328,3 +328,24 @@ export function expandReferences() {
         Mouse.leftClick(footnote);
     }
 }
+
+// ============== Block Hierarchy Commands ==============
+export async function selectParentBlock() {
+    console.log('[Roam Vim Mode] selectParentBlock called');
+    const panel = VimRoamPanel.selected();
+    const found = panel.selectParentBlock();
+    console.log('[Roam Vim Mode] Parent block found:', found);
+    if (found) {
+        updateVimView();
+    }
+}
+
+export async function selectFirstChildBlock() {
+    console.log('[Roam Vim Mode] selectFirstChildBlock called');
+    const panel = VimRoamPanel.selected();
+    const found = await panel.selectFirstChildBlock();
+    console.log('[Roam Vim Mode] Child block found:', found);
+    if (found) {
+        updateVimView();
+    }
+}

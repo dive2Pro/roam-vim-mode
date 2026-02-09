@@ -272,9 +272,8 @@ function observeElement(observeInside, handleChange, observeChildren = false, ob
 }
 function onSelectorChange(selector, handleChange, observeChildren = false, observeAttributes = false) {
   const element = document.querySelector(selector);
-  if (!element)
-    return () => {
-    };
+  if (!element) return () => {
+  };
   return observeElement(element, handleChange, observeChildren, observeAttributes);
 }
 function waitForSelectorToExist(selector, observeInside = document.body) {
@@ -290,8 +289,7 @@ function waitForSelectionToExist(selectionFn, observeInside = document.body) {
       }
       return false;
     };
-    if (resolveIfElementExists())
-      return;
+    if (resolveIfElementExists()) return;
     const disconnect = observeElement(
       observeInside,
       () => {
@@ -361,14 +359,12 @@ var Roam = {
   },
   getActiveRoamNode() {
     const element = this.getRoamBlockInput();
-    if (!element)
-      return null;
+    if (!element) return null;
     return new RoamNode(element.value, new Selection(element.selectionStart, element.selectionEnd));
   },
   async applyToCurrent(action) {
     const node = this.getActiveRoamNode();
-    if (!node)
-      return;
+    if (!node) return;
     await this.save(action(node));
   },
   async highlight(element) {
@@ -641,14 +637,78 @@ var VimRoamPanel = class _VimRoamPanel {
   lastVisibleBlock() {
     return assumeExists(findLast(this.blocks(), blockIsVisible), "Could not find any visible block");
   }
+  /**
+   * Find the parent block of the current block
+   * @returns {RoamBlock|null} The parent block or null if none exists
+   */
+  findParentBlock(currentBlockElement) {
+    const currentContainer = currentBlockElement.closest(Selectors.blockContainer);
+    if (!currentContainer) return null;
+    const childrenContainer = currentContainer.parentElement;
+    if (!childrenContainer || !childrenContainer.classList.contains("rm-block-children")) {
+      return null;
+    }
+    const parentContainer = childrenContainer.parentElement;
+    if (!parentContainer || parentContainer === currentContainer) return null;
+    const parentBlock = parentContainer.querySelector(Selectors.block);
+    return parentBlock ? new RoamBlock(parentBlock) : null;
+  }
+  /**
+   * Find the first child block of the current block
+   * @returns {RoamBlock|null} The first child block or null if none exists
+   */
+  findFirstChildBlock(currentBlockElement) {
+    const currentContainer = currentBlockElement.closest(Selectors.blockContainer);
+    if (!currentContainer) return null;
+    const childrenContainer = currentContainer.querySelector(".rm-block-children");
+    if (!childrenContainer) return null;
+    const childContainer = childrenContainer.querySelector(Selectors.blockContainer);
+    if (!childContainer) return null;
+    const childBlock = childContainer.querySelector(Selectors.block);
+    return childBlock ? new RoamBlock(childBlock) : null;
+  }
+  /**
+   * Select the parent block of the currently selected block
+   * @returns {boolean} True if parent block was found and selected
+   */
+  selectParentBlock() {
+    const currentBlock = this.selectedBlock().element;
+    const parentBlock = this.findParentBlock(currentBlock);
+    if (parentBlock) {
+      this.selectBlock(parentBlock.id);
+      return true;
+    }
+    return false;
+  }
+  /**
+   * Select the first child block of the currently selected block
+   * Automatically expands folded blocks if necessary
+   * @returns {Promise<boolean>} True if child block was found and selected
+   */
+  async selectFirstChildBlock() {
+    const currentBlock = this.selectedBlock().element;
+    let childBlock = this.findFirstChildBlock(currentBlock);
+    if (!childBlock) {
+      const foldButton = currentBlock.querySelector(Selectors.foldButton);
+      if (foldButton && foldButton.classList.contains("rm-caret-closed")) {
+        await Roam.toggleFoldBlock(currentBlock);
+        await delay(50);
+        childBlock = this.findFirstChildBlock(currentBlock);
+      }
+    }
+    if (childBlock) {
+      this.selectBlock(childBlock.id);
+      return true;
+    }
+    return false;
+  }
 };
 function blockScrollOverflow(block) {
   const { top, height, width } = block.getBoundingClientRect();
   const bottom = top + height;
   const scaledPadding = width / block.offsetWidth * SCROLL_PADDING;
   const panel = block.closest(PANEL_SELECTOR);
-  if (!panel)
-    return 0;
+  if (!panel) return 0;
   const { top: panelTop, height: panelHeight } = panel.getBoundingClientRect();
   const panelBottom = panelTop + panelHeight;
   const overflowTop = panelTop - top + scaledPadding;
@@ -793,12 +853,13 @@ var searchState = {
   // Array of { element, textNode, startIndex, endIndex }
   currentIndex: -1,
   // Current match index
-  lastQuery: ""
+  lastQuery: "",
   // Remember last search for n/N commands
+  highlightsActive: false
+  // Whether search highlights are currently displayed
 };
 function enterSearchMode() {
-  if (searchState.active)
-    return;
+  if (searchState.active) return;
   searchState.active = true;
   searchState.query = "";
   searchState.matches = [];
@@ -822,12 +883,14 @@ function exitSearchMode(clearHighlights = true) {
     clearSearchHighlights();
     searchState.matches = [];
     searchState.currentIndex = -1;
+    searchState.highlightsActive = false;
+  } else if (searchState.matches.length > 0) {
+    searchState.highlightsActive = true;
   }
 }
 function handleSearchInput(event) {
   const input = document.getElementById(SEARCH_INPUT_ID);
-  if (!input)
-    return;
+  if (!input) return;
   const key = event.key;
   if (key === "Escape") {
     exitSearchMode(true);
@@ -851,8 +914,7 @@ function performSearch(query) {
   searchState.query = query;
   searchState.matches = [];
   searchState.currentIndex = -1;
-  if (!query)
-    return;
+  if (!query) return;
   const queryLower = query.toLowerCase();
   const blocks = getVisibleBlocks();
   blocks.forEach((block) => {
@@ -863,8 +925,7 @@ function performSearch(query) {
       let startIndex = 0;
       while (true) {
         const index = textLower.indexOf(queryLower, startIndex);
-        if (index === -1)
-          break;
+        if (index === -1) break;
         searchState.matches.push({
           element: block,
           textNode,
@@ -949,8 +1010,7 @@ function clearSearchHighlights() {
   blocks.forEach((block) => block.normalize());
 }
 function navigateToMatch(index) {
-  if (searchState.matches.length === 0)
-    return;
+  if (searchState.matches.length === 0) return;
   if (index < 0) {
     index = searchState.matches.length - 1;
   } else if (index >= searchState.matches.length) {
@@ -972,6 +1032,11 @@ function navigateToMatch(index) {
       behavior: "smooth",
       block: "center"
     });
+  }
+  if (match && match.element) {
+    const panel = VimRoamPanel.fromBlock(match.element);
+    panel.selectBlock(match.element.id);
+    updateVimView();
   }
 }
 function nextMatch() {
@@ -998,6 +1063,14 @@ function previousMatch() {
   }
   navigateToMatch(searchState.currentIndex - 1);
 }
+function clearSearchHighlightsIfActive() {
+  if (searchState.highlightsActive && searchState.matches.length > 0) {
+    clearSearchHighlights();
+    searchState.matches = [];
+    searchState.currentIndex = -1;
+    searchState.highlightsActive = false;
+  }
+}
 
 // src/mode.js
 var Mode = {
@@ -1008,19 +1081,24 @@ var Mode = {
   SEARCH: "SEARCH"
 };
 function getMode() {
+  let currentMode;
   if (searchState.active) {
-    return Mode.SEARCH;
+    currentMode = Mode.SEARCH;
+  } else if (pageHintState.active) {
+    currentMode = Mode.HINT;
+  } else if (getActiveEditElement() && !document.querySelector(Selectors.commandBar)) {
+    currentMode = Mode.INSERT;
+  } else if (document.querySelector(Selectors.highlight)) {
+    currentMode = Mode.VISUAL;
+  } else {
+    currentMode = Mode.NORMAL;
   }
-  if (pageHintState.active) {
-    return Mode.HINT;
+  if (searchState.highlightsActive) {
+    if (currentMode === Mode.INSERT || currentMode === Mode.VISUAL || currentMode === Mode.HINT) {
+      clearSearchHighlightsIfActive();
+    }
   }
-  if (getActiveEditElement() && !document.querySelector(Selectors.commandBar)) {
-    return Mode.INSERT;
-  }
-  if (document.querySelector(Selectors.highlight)) {
-    return Mode.VISUAL;
-  }
-  return Mode.NORMAL;
+  return currentMode;
 }
 
 // src/help-panel.js
@@ -1030,6 +1108,8 @@ var KEYBINDINGS = {
     { key: "k", description: "Move up" },
     { key: "h", description: "Switch to left panel" },
     { key: "l", description: "Switch to right panel" },
+    { key: "H", description: "Go to parent block" },
+    { key: "L", description: "Go to first child block" },
     { key: "gg", description: "Jump to first block" },
     { key: "G", description: "Jump to last block" }
   ],
@@ -1207,8 +1287,7 @@ function setExtensionAPI(api) {
   extensionAPIRef = api;
 }
 function isSpacemacsEnabled() {
-  if (!extensionAPIRef)
-    return false;
+  if (!extensionAPIRef) return false;
   return extensionAPIRef.settings.get(SETTING_SPACEMACS_ENABLED) === true;
 }
 
@@ -1326,6 +1405,24 @@ async function deleteBlock() {
   }
   await Roam.deleteBlock();
   await returnToNormalMode();
+}
+async function selectParentBlock() {
+  console.log("[Roam Vim Mode] selectParentBlock called");
+  const panel = VimRoamPanel.selected();
+  const found = panel.selectParentBlock();
+  console.log("[Roam Vim Mode] Parent block found:", found);
+  if (found) {
+    updateVimView();
+  }
+}
+async function selectFirstChildBlock() {
+  console.log("[Roam Vim Mode] selectFirstChildBlock called");
+  const panel = VimRoamPanel.selected();
+  const found = await panel.selectFirstChildBlock();
+  console.log("[Roam Vim Mode] Child block found:", found);
+  if (found) {
+    updateVimView();
+  }
 }
 
 // src/keybindings.js
@@ -1456,12 +1553,9 @@ function buildSequence(key, event) {
     clearTimeout(sequenceTimeout);
   }
   let prefix = "";
-  if (event.ctrlKey)
-    prefix += "ctrl+";
-  if (event.metaKey)
-    prefix += "cmd+";
-  if (event.altKey)
-    prefix += "alt+";
+  if (event.ctrlKey) prefix += "ctrl+";
+  if (event.metaKey) prefix += "cmd+";
+  if (event.altKey) prefix += "alt+";
   if (event.shiftKey && key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
   } else if (event.shiftKey) {
     prefix += "shift+";
@@ -1494,10 +1588,8 @@ function matchCommand(sequence, mode, event) {
     return returnToNormalMode;
   }
   if (isNormal) {
-    if (sequence === "g g")
-      return selectFirstBlock;
-    if (sequence === "d d")
-      return deleteBlock;
+    if (sequence === "g g") return selectFirstBlock;
+    if (sequence === "d d") return deleteBlock;
     if (sequencePrefix) {
       return () => {
       };
@@ -1506,42 +1598,26 @@ function matchCommand(sequence, mode, event) {
       return () => {
       };
     }
-    if (key === "k" && !event.shiftKey && !event.ctrlKey)
-      return selectBlockUp;
-    if (key === "j" && !event.shiftKey && !event.ctrlKey)
-      return selectBlockDown;
-    if (key === "g" && event.shiftKey)
-      return selectLastBlock;
-    if (key === "h" && !event.shiftKey)
-      return selectPanelLeft;
-    if (key === "l" && !event.shiftKey)
-      return selectPanelRight;
-    if (key === "i" && !event.shiftKey)
-      return editBlock;
-    if (key === "a")
-      return editBlockFromEnd;
-    if (key === "o" && event.shiftKey)
-      return insertBlockBefore;
-    if (key === "o" && !event.shiftKey)
-      return insertBlockAfter;
-    if (key === "v" && event.shiftKey)
-      return highlightSelectedBlock;
-    if (key === "z" && !event.shiftKey && !event.ctrlKey)
-      return toggleFold;
-    if (key === "c" && !event.shiftKey && !event.ctrlKey)
-      return centerCurrentBlock;
-    if (key === "u" && !event.ctrlKey)
-      return undo;
-    if (key === "r" && event.ctrlKey)
-      return redo;
-    if (event.key === "?")
-      return showHelpPanel;
-    if (event.key === "/")
-      return enterSearchMode;
-    if (key === "n" && !event.shiftKey && !event.ctrlKey)
-      return nextMatch;
-    if (key === "n" && event.shiftKey && !event.ctrlKey)
-      return previousMatch;
+    if (key === "k" && !event.shiftKey && !event.ctrlKey) return selectBlockUp;
+    if (key === "j" && !event.shiftKey && !event.ctrlKey) return selectBlockDown;
+    if (key === "g" && event.shiftKey) return selectLastBlock;
+    if (key === "h" && !event.shiftKey) return selectPanelLeft;
+    if (key === "l" && !event.shiftKey) return selectPanelRight;
+    if (key === "h" && event.shiftKey) return selectParentBlock;
+    if (key === "l" && event.shiftKey) return selectFirstChildBlock;
+    if (key === "i" && !event.shiftKey) return editBlock;
+    if (key === "a") return editBlockFromEnd;
+    if (key === "o" && event.shiftKey) return insertBlockBefore;
+    if (key === "o" && !event.shiftKey) return insertBlockAfter;
+    if (key === "v" && event.shiftKey) return highlightSelectedBlock;
+    if (key === "z" && !event.shiftKey && !event.ctrlKey) return toggleFold;
+    if (key === "c" && !event.shiftKey && !event.ctrlKey) return centerCurrentBlock;
+    if (key === "u" && !event.ctrlKey) return undo;
+    if (key === "r" && event.ctrlKey) return redo;
+    if (event.key === "?") return showHelpPanel;
+    if (event.key === "/") return enterSearchMode;
+    if (key === "n" && !event.shiftKey && !event.ctrlKey) return nextMatch;
+    if (key === "n" && event.shiftKey && !event.ctrlKey) return previousMatch;
     for (let i = 0; i < DEFAULT_HINT_KEYS.length; i++) {
       if (key === DEFAULT_HINT_KEYS[i] && !event.shiftKey && !event.ctrlKey) {
         return () => clickHint(i);
@@ -1925,8 +2001,7 @@ function createModeIndicator() {
 }
 function updateModeIndicator() {
   const indicator = document.getElementById(MODE_INDICATOR_ID);
-  if (!indicator)
-    return;
+  if (!indicator) return;
   const mode = getMode();
   switch (mode) {
     case Mode.NORMAL:

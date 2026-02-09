@@ -23,6 +23,8 @@ import {
     insertBlockBefore,
     selectPanelLeft,
     selectPanelRight,
+    selectParentBlock,
+    selectFirstChildBlock,
     highlightSelectedBlock,
     undo,
     redo,
@@ -292,6 +294,10 @@ function matchCommand(sequence, mode, event) {
         // Panel navigation
         if (key === 'h' && !event.shiftKey) return selectPanelLeft;
         if (key === 'l' && !event.shiftKey) return selectPanelRight;
+
+        // Block hierarchy navigation
+        if (key === 'h' && event.shiftKey) return selectParentBlock;
+        if (key === 'l' && event.shiftKey) return selectFirstChildBlock;
 
         // Insert mode
         if (key === 'i' && !event.shiftKey) return editBlock;

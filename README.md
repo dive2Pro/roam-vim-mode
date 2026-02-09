@@ -20,6 +20,8 @@ A Roam Research extension that provides Vim-like keyboard navigation for blocks.
 | `k` | Move up |
 | `h` | Switch to left panel |
 | `l` | Switch to right panel |
+| `H` | Go to parent block |
+| `L` | Go to first child block |
 | `gg` | Jump to first block |
 | `G` | Jump to last block |
 
