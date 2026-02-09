@@ -211,8 +211,20 @@ export function handleKeydown(event) {
         event.preventDefault();
         event.stopPropagation();
         command();
-        clearSequence();
+        // Only clear sequence if it's not a waiting-for-sequence command
+        // (i.e., if the sequence is more than just a single prefix key)
+        if (!isWaitingForSequence(sequence, key, event)) {
+            clearSequence();
+        }
     }
+}
+
+/**
+ * Check if we're waiting for more keys in a sequence
+ * Returns true if the sequence is just a single prefix key (like 'g' or 'd')
+ */
+function isWaitingForSequence(sequence, key, event) {
+    return SEQUENCE_PREFIXES.includes(key) && sequence === key && !event.shiftKey && !event.ctrlKey && !event.altKey;
 }
 
 // ============== Sequence Building ==============
