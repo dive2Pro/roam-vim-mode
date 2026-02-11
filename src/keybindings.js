@@ -114,11 +114,51 @@ export function isLeaderModeActive() {
     return leaderState.active;
 }
 
+/**
+ * Check if any modal/overlay is currently open
+ * When a modal is open, we should let all keys pass through to Roam
+ */
+function isModalOpen() {
+    // Check for command bar (omnibar) - it's the most common modal
+    const commandBar = document.querySelector(Selectors.commandBar);
+    if (commandBar) {
+        const style = window.getComputedStyle(commandBar);
+        if (style.display !== 'none' && style.visibility !== 'hidden') {
+            return true;
+        }
+    }
+
+    // Check for dialogs inside overlays (not inline/toast variants)
+    const overlays = document.querySelectorAll('.bp3-overlay');
+    for (const overlay of overlays) {
+        // Skip toast containers and inline overlays
+        if (overlay.classList.contains('bp3-toast-container') ||
+            overlay.classList.contains('bp3-overlay-inline')) {
+            continue;
+        }
+
+        // Only count as modal if overlay has actual dialog content
+        // Note: bp3-popover-wrapper/bp3-popover-target are normal UI elements, not modals
+        const hasDialog = overlay.querySelector('.bp3-dialog');
+        if (hasDialog) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 // ============== Keydown Handler ==============
 export function handleKeydown(event) {
     const mode = getMode();
     const key = event.key.toLowerCase();
     const hasModifier = event.ctrlKey || event.metaKey || event.altKey;
+
+    // Don't intercept if any modal/overlay is open
+    // This allows users to interact with dialogs, popovers, etc.
+    if (isModalOpen()) {
+        return;
+    }
 
     // Handle search mode specially
     if (mode === Mode.SEARCH) {
@@ -164,11 +204,6 @@ export function handleKeydown(event) {
 
     // Don't intercept when in insert mode unless it's Escape
     if (mode === Mode.INSERT && key !== 'escape') {
-        return;
-    }
-
-    // Let ESC pass through to Roam when command bar (Cmd+P) or search dialog (Cmd+U) is open
-    if (key === 'escape' && (document.querySelector(Selectors.commandBar) || document.querySelector('.bp3-overlay'))) {
         return;
     }
 

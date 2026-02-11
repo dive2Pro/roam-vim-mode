@@ -333,8 +333,8 @@ export function expandReferences() {
 export async function selectParentBlock() {
     console.log('[Roam Vim Mode] selectParentBlock called');
     const panel = VimRoamPanel.selected();
-    const found = panel.selectParentBlock();
-    console.log('[Roam Vim Mode] Parent block found:', found);
+    const found = await panel.selectParentBlock();
+    console.log('[Roam Vim Mode] Parent block found or Zoom exited:', found);
     if (found) {
         updateVimView();
     }

@@ -1496,10 +1496,33 @@ function handleLeaderSequence(key, event) {
   resetLeaderState();
   return false;
 }
+function isModalOpen() {
+  const commandBar = document.querySelector(Selectors.commandBar);
+  if (commandBar) {
+    const style = window.getComputedStyle(commandBar);
+    if (style.display !== "none" && style.visibility !== "hidden") {
+      return true;
+    }
+  }
+  const overlays = document.querySelectorAll(".bp3-overlay");
+  for (const overlay of overlays) {
+    if (overlay.classList.contains("bp3-toast-container") || overlay.classList.contains("bp3-overlay-inline")) {
+      continue;
+    }
+    const hasDialog = overlay.querySelector(".bp3-dialog");
+    if (hasDialog) {
+      return true;
+    }
+  }
+  return false;
+}
 function handleKeydown(event) {
   const mode = getMode();
   const key = event.key.toLowerCase();
   const hasModifier = event.ctrlKey || event.metaKey || event.altKey;
+  if (isModalOpen()) {
+    return;
+  }
   if (mode === Mode.SEARCH) {
     if (key === "escape" || key === "enter") {
       event.preventDefault();
@@ -1534,9 +1557,6 @@ function handleKeydown(event) {
     return;
   }
   if (mode === Mode.INSERT && key !== "escape") {
-    return;
-  }
-  if (key === "escape" && (document.querySelector(Selectors.commandBar) || document.querySelector(".bp3-overlay"))) {
     return;
   }
   if (leaderState.active) {

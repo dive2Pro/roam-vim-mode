@@ -3,7 +3,7 @@
  */
 
 import { Selectors, PANEL_CSS_CLASS, PANEL_SELECTOR, SCROLL_PADDING } from './constants.js';
-import { assumeExists, relativeItem, clamp, findLast, delay } from './utils.js';
+import { assumeExists, relativeItem, clamp, findLast, delay, Keyboard } from './utils.js';
 import { Roam } from './roam.js';
 
 // ============== Panel State ==============
@@ -242,10 +242,28 @@ export class VimRoamPanel {
     }
 
     /**
-     * Select the parent block of the currently selected block
-     * @returns {boolean} True if parent block was found and selected
+     * 检测是否处于 Zoom 模式
+     * @returns {boolean}
      */
-    selectParentBlock() {
+    isInZoomMode() {
+        return document.querySelector(Selectors.zoomPath) !== null;
+    }
+
+    /**
+     * 退出 Zoom 模式
+     * @returns {Promise<void>}
+     */
+    async exitZoomMode() {
+        await Keyboard.pressEsc();
+        await delay(100);
+    }
+
+    /**
+     * 选择当前 block 的父 block
+     * 如果在顶层且处于 Zoom 模式，则退出 Zoom 模式
+     * @returns {Promise<boolean>} 找到父 block 或退出 Zoom 模式返回 true
+     */
+    async selectParentBlock() {
         const currentBlock = this.selectedBlock().element;
         const parentBlock = this.findParentBlock(currentBlock);
 
@@ -253,6 +271,13 @@ export class VimRoamPanel {
             this.selectBlock(parentBlock.id);
             return true;
         }
+
+        // 在顶层 - 检查是否处于 Zoom 模式并退出
+        if (this.isInZoomMode()) {
+            await this.exitZoomMode();
+            return true;
+        }
+
         return false;
     }
 
